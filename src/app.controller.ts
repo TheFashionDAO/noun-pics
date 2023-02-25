@@ -10,7 +10,7 @@ import {
   Render,
   Res,
 } from '@nestjs/common';
-import { Response } from 'express';
+import express from 'express';
 import { AppService } from './app.service';
 import * as fs from 'fs';
 // import { cachePath as computeCachePath } from './utils/cachePath';
@@ -34,102 +34,211 @@ export class AppController {
   getFavicon() {}
 
   @Get('tokenUri/:id')
-  async getTokenUri(@Param('id') id: number) {
+  async getTokenUri(@Param('id') id: number, @Res() res: express.Response) {
     this.logger.verbose(`Handling tokenUri/${id}`);
-    return this.appService.getTokenUri(id);
+
+    try {
+      const result = await this.appService.getTokenUri(id);
+      res.status(200).json(result);
+      return result;
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).send({ error: error.message });
+        return;
+      }
+      res.status(400).send({ error: `Unknown Error: ${error}` });
+      return;
+    }
   }
 
   @Get(':id.svg')
   async getSvg(
     @Param('id') id: number,
-    @Res() res: Response,
+    @Res() res: express.Response,
     @Query('removeBackground') removeBackground: boolean,
   ) {
     this.logger.verbose(`Handling ${id}.svg`);
-    const cacheName = [id, removeBackground ? 'rmb' : ''].join('_');
-    // return (await this.appService.getRawSvg(id)).toString();
-    const cachePath = `/tmp/nouns/${cacheName}.svg`;
-    if (!fs.existsSync(cachePath)) {
-      const svg = (
-        await this.appService.getRawSvg(id, { removeBackground })
-      ).toString();
-      fs.writeFileSync(cachePath, svg);
+
+    try {
+      const cacheName = [id, removeBackground ? 'rmb' : ''].join('_');
+      let rawSvg: Buffer;
+      const cachePath = `/tmp/nouns/${cacheName}.svg`;
+      if (!fs.existsSync(cachePath)) {
+        rawSvg = await this.appService.getRawSvg(id, { removeBackground });
+        const svg = rawSvg.toString();
+        fs.writeFileSync(cachePath, svg);
+      }
+      res.sendFile(cachePath);
+      return;
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).send({ error: error.message });
+        return;
+      }
+      res.status(400).send({ error: `Unknown Error: ${error}` });
+      return;
     }
-    res.sendFile(cachePath);
-    return;
   }
 
   @Get('0x:address')
   async getAddressNouns(
     @Param('address') addr: string,
-    @Res() res: Response,
+    @Res() res: express.Response,
     @Query('includeDelegates') includeDelegates: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @Query('size') size: string,
   ) {
     this.logger.verbose(`Handling address 0x${addr}`);
-    const fullAddress = `0x${addr}`;
-    const nounTile = await this.appService.getAddressNounTile(
-      fullAddress,
-      includeDelegates === 'true',
-    );
-    nounTile.toFormat('png').pipe(res);
+
+    try {
+      const fullAddress = `0x${addr}`;
+      const nounTile = await this.appService.getAddressNounTile(
+        fullAddress,
+        includeDelegates === 'true',
+      );
+      nounTile.toFormat('png').pipe(res);
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).send({ error: error.message });
+        return;
+      }
+      res.status(400).send({ error: `Unknown Error: ${error}` });
+      return;
+    }
   }
 
   @Get(':ens.eth')
   async getEnsNameNouns(
     @Param('ens') ens: string,
-    @Res() res: Response,
+    @Res() res: express.Response,
     @Query('includeDelegates') includeDelegates: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @Query('size') size: string,
   ) {
     this.logger.verbose(`Handling ens ${ens}.eth`);
-    const fullAddress = await this.appService.resolveEnsName(`${ens}.eth`);
-    const nounTile = await this.appService.getAddressNounTile(
-      fullAddress,
-      includeDelegates === 'true',
-    );
-    nounTile.toFormat('png').pipe(res);
+
+    try {
+      const fullAddress = await this.appService.resolveEnsName(`${ens}.eth`);
+      const nounTile = await this.appService.getAddressNounTile(
+        fullAddress,
+        includeDelegates === 'true',
+      );
+      nounTile.toFormat('png').pipe(res);
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).send({ error: error.message });
+        return;
+      }
+      res.status(400).send({ error: `Unknown Error: ${error}` });
+      return;
+    }
   }
 
   @Get('/range')
-  async getRange(@Query('start') start: number, @Query('end') end: number) {
-    // Latch and correct order
-    start = start ? Number(start) : 0;
-    end = end ? Number(end) : 0;
-    start = start - end < 0 ? start : end;
-    end = start - end < 0 ? end : start;
+  async getRange(
+    @Query('start') start: number,
+    @Query('end') end: number,
+    @Res() res: express.Response,
+  ) {
+    this.logger.verbose(`Handling range ${start} to ${end}`);
 
-    return await Promise.all(
-      new Array(Math.abs(end - start + 1)).fill(0).map(async (_, i) => {
-        const id = i + start;
-        return {
-          id,
-          svg: (await this.appService.getSvg(id)).toString(),
-        };
-      }),
-    );
+    try {
+      // Latch and correct order
+      start = start ? Number(start) : 0;
+      end = end ? Number(end) : 0;
+      start = start - end < 0 ? start : end;
+      end = start - end < 0 ? end : start;
+      const result = await Promise.all(
+        new Array(Math.abs(end - start + 1)).fill(0).map(async (_, i) => {
+          const id = i + start;
+          let svg: string;
+          try {
+            svg = await this.appService.getSvg(id);
+          } catch (error) {
+            if (error instanceof Error) {
+              return {
+                id,
+                svg: null,
+                error: error.message,
+              };
+            }
+            return {
+              id,
+              svg: null,
+              error: `Unknown Error: ${error}`,
+            };
+          }
+          return {
+            id,
+            svg: svg,
+          };
+        }),
+      );
+      res.status(201).json(result);
+      return result;
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).send({ error: error.message });
+        return;
+      }
+      res.status(400).send({ error: `Unknown Error: ${error}` });
+      return;
+    }
+  }
+
+  @Get('/nouns')
+  async getNouns(
+    @Res() res: express.Response,
+    @Param('net') network?: string,
+    @Param('ver') version?: string,
+  ) {
+    this.logger.verbose(`Handling nouns`);
+
+    try {
+      const results = await this.appService.getNouns(
+        network ?? 'goerli',
+        version ?? '0',
+      );
+      res.status(201).json(results);
+      return;
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).send({ error: error.message });
+        return;
+      }
+      res.status(400).send({ error: `Unknown Error: ${error}` });
+      return;
+    }
   }
 
   @Get(':id')
   async getImage(
     @Param('id') id: string,
-    @Res() res: Response,
+    @Res() res: express.Response,
     @Query('size') size: string,
     @Query('removeBackground') removeBackground: boolean,
   ) {
     this.logger.verbose(`Handling id ${id}`);
-    const imageSize = this.flattenSize(size);
-    const idParts = id.split('.');
-    const nounId = parseInt(idParts[0]);
-    const format = idParts[1] || 'png';
 
-    const png = await this.appService.getPng(nounId, imageSize, {
-      removeBackground,
-    });
-    png.toFormat(format).pipe(res);
-    return;
+    try {
+      const imageSize = this.flattenSize(size);
+      const idParts = id.split('.');
+      const nounId = parseInt(idParts[0]);
+      const format = idParts[1] || 'png';
+
+      const png = await this.appService.getPng(nounId, imageSize, {
+        removeBackground,
+      });
+      png.toFormat(format).pipe(res);
+      return;
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).send({ error: error.message });
+        return;
+      }
+      res.status(400).send({ error: `Unknown Error: ${error}` });
+      return;
+    }
   }
 
   private flattenSize = (size: number | string) =>

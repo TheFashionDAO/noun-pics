@@ -7,15 +7,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JsonRpcProvider } from '@ethersproject/providers';
-// import { getContractsForChainOrThrow, DecodedImage } from '@nouns/sdk';
 import { parseBase64TokenUri } from './utils/tokenUri';
 import { TokenUri } from './types/tokenUri';
 import sharp from 'sharp';
 // import defaults from './utils/constants';
-import {
-  // allNouns,
-  nounsForAddress,
-} from './utils/theGraph';
+import { allNouns, nounsForAddress } from './utils/theGraph';
 import { Noun } from './types/noun';
 import * as R from 'ramda';
 import constants from './utils/constants';
@@ -23,27 +19,21 @@ import * as fs from 'fs';
 import { cachePath as computeCachePath } from './utils/cachePath';
 import ENS, { getEnsAddress } from '@ensdomains/ensjs';
 // import { ImageData } from '@nouns/assets';
-// import { buildSVG } from '@nouns/sdk';
+import { Contracts } from '@nouns/sdk/dist/contract/types';
 import { getRandomGlasses } from './utils/glasses';
 import { SVGOptions } from './types/svg';
-import { Cache } from 'cache-manager';
-import { Contracts } from '@nouns/sdk/dist/contract/types';
-
+import { RedisCache as Cache } from 'cache-manager-ioredis-yet';
 import { getContractsForChainOrThrow } from './utils/contracts';
 
 export const DEFAULT_IMAGE_SIZE = 320;
 
 @Injectable({ scope: Scope.DEFAULT })
 export class AppService {
+  private network: string;
+  private version: string;
   private provider: JsonRpcProvider;
   private contracts: Contracts;
-  private ens: {
-    name: (arg0: string) => {
-      (): any;
-      new (): any;
-      getAddress: { (): string | PromiseLike<string>; new (): any };
-    };
-  };
+  private ens: typeof ENS;
   private readonly logger = new Logger(AppService.name);
 
   constructor(
@@ -51,7 +41,7 @@ export class AppService {
     private readonly cacheManager: Cache,
     private readonly configService: ConfigService,
   ) {
-    const jsonRpcUrl = this.configService.get<string>('JSON_RPC_URL');
+    const jsonRpcUrl = this.configService?.get<string>('JSON_RPC_URL');
     const chainId =
       this.configService.get<number>('ADDRESS_ID') ||
       this.configService.get<number>('CHAIN_ID') ||
@@ -62,20 +52,31 @@ export class AppService {
       provider: this.provider,
       ensAddress: getEnsAddress('1'),
     });
+    this.logger.debug(
+      `Nouns token contract address: ${this.contracts.nounsTokenContract.address}`,
+    );
   }
 
   buildTokenUriCacheKey = (id: number) => `tokenUri_${id}`;
 
   async getTokenUri(id: number): Promise<TokenUri> {
+    this.logger.debug(`Getting token address for: ${id}`);
+    try {
+      const tokenOwner = await this.contracts.nounsTokenContract.ownerOf(id);
+      this.logger.debug(`Token ID ${id} Owner: ${tokenOwner.toString()}`);
+    } catch {
+      throw new Error(`Token ID ${id} has no owner!`);
+    }
+
     let tokenUri = await this.cacheManager.get<TokenUri | null>(
       this.buildTokenUriCacheKey(id),
     );
     if (!tokenUri) {
       this.logger.verbose(`Cache miss for ${id}`);
-      tokenUri = (await this.contracts.nounsTokenContract.tokenURI(
+      const tokenContractUri = await this.contracts.nounsTokenContract.tokenURI(
         id,
-      )) as unknown as TokenUri;
-      tokenUri = parseBase64TokenUri(tokenUri);
+      );
+      tokenUri = parseBase64TokenUri(tokenContractUri);
       if (tokenUri) {
         // Fetching non-existent will throw but just be safe
         this.logger.verbose(`Writing cache for ${id}`);
@@ -91,10 +92,15 @@ export class AppService {
     return tokenUri.image;
   }
 
+  async getAddress(id: number): Promise<TokenUri> {
+    return await this.getTokenUri(id);
+  }
+
   async getRawSvg(id: number, options: SVGOptions = {}): Promise<Buffer> {
-    let svg = Buffer.from((await this.getSvg(id)).substr(26), 'base64');
+    const svg = await this.getSvg(id);
+    let svgBuf: Buffer;
     if (options.removeBackground) {
-      svg = Buffer.from(
+      svgBuf = Buffer.from(
         svg
           .toString()
           .replace(
@@ -103,7 +109,8 @@ export class AppService {
           ),
       );
     }
-    return svg;
+    svgBuf = Buffer.from(svg.substr(26), 'base64');
+    return svgBuf;
   }
 
   async getSharp(id: number, options: SVGOptions = {}): Promise<any> {
@@ -130,6 +137,10 @@ export class AppService {
     return sharp(cachePath);
   }
 
+  async getNouns(network?: string, version?: string): Promise<Noun[]> {
+    return await allNouns(network, version);
+  }
+
   async getAddressNouns(address: string, delegates = false): Promise<Noun[]> {
     return nounsForAddress(address, delegates);
   }
@@ -141,11 +152,12 @@ export class AppService {
     return R.map(
       R.prop('id'),
       await this.getAddressNouns(address, delegates),
-    ).sort((a: number, b: number) => a - b);
+    ).sort((a, b) => a - b);
   }
 
   async resolveEnsName(name: string): Promise<string> {
-    return this.ens.name(name).getAddress();
+    const ensName = this.ens.name(name);
+    return await ensName?.getAddress();
   }
 
   async getAddressNounTile(address: string, delegates = false): Promise<any> {
