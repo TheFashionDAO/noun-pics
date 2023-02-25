@@ -24,8 +24,10 @@ export class AppController {
 
   @Get()
   @Render('index')
-  getHello(): string {
-    return '';
+  getHello(): Record<string, any> {
+    const baseUrl =
+      process.env.BASE_URL || `http://localhost:${process.env.PORT}`;
+    return { baseUrl };
   }
 
   @Get('favicon.ico')
@@ -189,16 +191,13 @@ export class AppController {
   @Get('/nouns')
   async getNouns(
     @Res() res: express.Response,
-    @Param('net') network?: string,
-    @Param('ver') version?: string,
+    @Query('net') network?: string,
+    @Query('ver') version?: string,
   ) {
-    this.logger.verbose(`Handling nouns`);
+    this.logger.verbose(`Handling nouns: ${network}/${version}`);
 
     try {
-      const results = await this.appService.getNouns(
-        network ?? 'goerli',
-        version ?? '0',
-      );
+      const results = await this.appService.getNouns(network, version);
       res.status(201).json(results);
       return;
     } catch (error) {

@@ -6,13 +6,11 @@ export const createSubgraphApiUri = (
   version?: string,
 ): string => {
   const custom = process.env[`${network?.toUpperCase()}_SUBGRAPH`];
-  const net = network ? `nouns-${network?.toLowerCase()}` : 'nouns';
-  const ver = version ? `${version}/gn` : 'gn';
-  // https://api.thegraph.com/subgraphs/name/nounsdao/nouns-subgraph // mainnet default
-  return (
-    custom ||
-    `https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/${net}/${ver}`
-  );
+  const net = network && `nouns-${network?.toLowerCase()}`;
+  const ver = version && `${version}/gn`;
+  return custom ?? (net && ver)
+    ? `https://api.goldsky.com/api/public/project_cldf2o9pqagp43svvbk5u3kmo/subgraphs/${net}/${ver}`
+    : 'https://api.thegraph.com/subgraphs/name/nounsdao/nouns-subgraph';
 };
 
 export const allNouns = async (network?: string, version?: string) =>

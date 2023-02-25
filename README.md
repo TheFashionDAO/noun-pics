@@ -45,7 +45,18 @@ noun.pics needs a [redis](https://redis.io) database to connect to and a JSON-RP
 
 The application is configured using environment variables:
 
-| Variable Name  | Description                                      | Example                            |
-| -------------- | ------------------------------------------------ | ---------------------------------- |
-| `REDIS_URI`    | A URI to a redis instance that noun.pics can use | `redis://localhost`                |
-| `JSON_RPC_URL` | The URL to a JSON-RPC provider for chain data    | `https://mainnet.infura.io/v3/abc` |
+| Variable Name                    | Description                                      | Example                                          |
+| -------------------------------- | ------------------------------------------------ | ------------------------------------------------ |
+| `CHAIN_ID`                       | The Chain (1-mainnet, 5-goerli) of the network   | `1`                                              |
+| `ADDRESS_ID`                     | The Chain ID of any custom deployed chain        | `1`                                              |
+| `{GOERLI \|\| MAINNET}_SUBGRAPH` | The URL to a JSON-RPC provider for graphql data  | `https://api.goldsky.com/api/public/project_abc` |
+| `PORT`                           | The application's listening port                 | `3000`                                           |
+| `REDIS_HOST`                     | The Redis hostname                               | `localhost`                                      |
+| `REDIS_PORT`                     | The Redis port                                   | `6380`                                           |
+| `REDIS_PASS`                     | The Redis password                               | `bitnami`                                        |
+| `BASE_URL`                       | The base URL of the application                  | `https://noun.pics`                              |
+
+### Resources
+
+Here's a [list](https://ethereumnodes.com/) of private/public JSON-RPC provider endpoints
+
