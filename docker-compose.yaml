@@ -1,5 +1,12 @@
 services:
-  db:
-    image: redis
+  redis:
+    image: bitnami/redis:latest
+    environment:
+      - REDIS_PORT_NUMBER=6380
+      - REDIS_PASSWORD=bitnami
+    networks:
+      - dev
     ports:
-      - 6379:6379
+      - 6380:6380
+networks:
+  dev:

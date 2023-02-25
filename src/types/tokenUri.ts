@@ -1,5 +1,5 @@
 export interface TokenUri {
-	name: string;
-	description: string;
-	image: string;
+  name: string;
+  description: string;
+  image: string;
 }

@@ -1,9 +1,9 @@
 import {
   Controller,
   Get,
-  Header,
+  // Header,
   HttpCode,
-  HttpStatus,
+  // HttpStatus,
   Logger,
   Param,
   Query,
@@ -13,8 +13,8 @@ import {
 import { Response } from 'express';
 import { AppService } from './app.service';
 import * as fs from 'fs';
-import { cachePath as computeCachePath } from './utils/cachePath';
-import { getRandomGlasses } from './utils/glasses';
+// import { cachePath as computeCachePath } from './utils/cachePath';
+// import { getRandomGlasses } from './utils/glasses';
 import * as R from 'ramda';
 
 @Controller()
@@ -30,6 +30,7 @@ export class AppController {
 
   @Get('favicon.ico')
   @HttpCode(404)
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   getFavicon() {}
 
   @Get('tokenUri/:id')
@@ -63,6 +64,7 @@ export class AppController {
     @Param('address') addr: string,
     @Res() res: Response,
     @Query('includeDelegates') includeDelegates: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @Query('size') size: string,
   ) {
     this.logger.verbose(`Handling address 0x${addr}`);
@@ -79,6 +81,7 @@ export class AppController {
     @Param('ens') ens: string,
     @Res() res: Response,
     @Query('includeDelegates') includeDelegates: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     @Query('size') size: string,
   ) {
     this.logger.verbose(`Handling ens ${ens}.eth`);

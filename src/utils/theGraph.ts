@@ -28,17 +28,17 @@ export const allNouns = async () =>
     )
   ).data.data.nouns;
 
-export const nounsForAddress = async (addr: string, delegate: boolean = false) => {
+export const nounsForAddress = async (addr: string, delegate = false) => {
   return (await allNouns())
-    .filter(
-      (noun) => {
-				const isOwned = noun.owner.id.toLocaleLowerCase() === addr.toLocaleLowerCase()
-				const isDelegate = noun.owner.delegate.id.toLocaleLowerCase() === addr.toLocaleLowerCase()
-				return isOwned || (delegate && isDelegate)
-			}
-    )
+    .filter((noun) => {
+      const isOwned =
+        noun.owner.id.toLocaleLowerCase() === addr.toLocaleLowerCase();
+      const isDelegate =
+        noun.owner.delegate.id.toLocaleLowerCase() === addr.toLocaleLowerCase();
+      return isOwned || (delegate && isDelegate);
+    })
     .map(normalizeNoun);
-}
+};
 
 const normalizeSeed = (seed) => ({
   accessory: Number(seed.accessory),
