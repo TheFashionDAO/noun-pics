@@ -1,5 +1,13 @@
+import fs from 'fs';
 import { ContractAddresses } from '@nouns/sdk/dist/contract/types';
-import addresses from '../data/addresses.json';
+import defaultAddresses from '../data/defaultAddresses.json';
+
+let addresses: Record<string, ContractAddresses> = {};
+
+// Check if the file exists before importing it
+if (fs.existsSync('src/data/addresses.json')) {
+  addresses = require('../data/addresses.json');
+}
 
 /**
  * Get addresses of contracts that have been deployed to the
@@ -10,7 +18,10 @@ import addresses from '../data/addresses.json';
 export const getContractAddressesForChainOrThrow = (
   chainId: number,
 ): ContractAddresses => {
-  const _addresses: Record<string, ContractAddresses> = addresses;
+  const _addresses: Record<string, ContractAddresses> = {
+    ...defaultAddresses,
+    ...addresses,
+  };
   if (!_addresses[chainId]) {
     throw new Error(
       `Unknown chain id (${chainId}). No known contracts have been deployed on this chain.`,
